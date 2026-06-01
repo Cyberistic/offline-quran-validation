@@ -27,6 +27,7 @@ data/rabah-ctc-pruned-8/
 data/rabah-ctc-pruned-12/
 data/rabah-ctc-pruned-*-finetuned/
 data/rabah-ctc-source/
+data/quran-md/
 *.m4a
 *.wav
 node_modules/
