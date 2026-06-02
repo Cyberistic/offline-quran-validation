@@ -148,13 +148,23 @@ def model_size() -> int:                  # model size in bytes
 
 | Experiment | Approach | SeqAcc | Recall | Precision | Latency | Size |
 |---|---|---|---|---|---|---|
-| ctc-alignment | wav2vec2 CTC forced alignment (fine-tuned) | **81%** | 83% | 83% | ~5s | 1.2 GB |
+| c2c-direct | CTC re-rank of FastConformer's own log-probs (.nemo) | 98% | **100%** | 99% | 0.17s | 438 MB |
+| c2c-direct-onnx | same algorithm, log-probs via 134 MB uint8 ONNX | 98% | 98% | 98% | 0.70s | **134 MB** |
+| ctc-alignment | wav2vec2 CTC forced alignment (fine-tuned) | 81% | 83% | 83% | ~5s | 1.2 GB |
 | tarteel-whisper-base | tarteel-ai/whisper-base-ar-quran | 67% | 72% | 75% | ~3s | 290 MB |
 | whisper-lora | Whisper-small + LoRA | 58% | 64% | 65% | ~1.3s | 485 MB |
 | embedding-search | HuBERT → FAISS index | — | — | — | — | — |
 | contrastive | QuranCLAP (HuBERT+AraBERT) | — | — | — | — | — |
 | streaming-asr | mlx-whisper chunked | — | — | — | — | — |
 | new-models/* | Various HF models | — | — | — | — | — |
+
+**Exporting the ONNX:** `scripts/export_fastconformer_onnx.py` traces the
+full preprocessor+encoder+CTC pipeline. Had to work around three ONNX
+gaps: `torch.stft` (complex types) → manual real-valued STFT via a
+precomputed cos/sin DFT matrix; `aten::unfold` (no symbol) → 1D
+`index_select` on a flattened tensor; `aten::fft_rfft` (no symbol) →
+same DFT matrix. Quantization: per-channel + reduce_range + symmetric
+weights (without reduce_range the q8 model gives blank transcripts).
 
 **Dead ends:** Moonshine Tiny AR LoRA (character-level tokenizer makes it un-fine-tunable, see README "What we tried").
 
