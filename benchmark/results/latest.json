@@ -28,18 +28,46 @@
     "source_file": "2026-06-01_093310.json"
   },
   {
+    "name": "c2c-direct-mixed",
+    "recall": 0.9814814814814815,
+    "precision": 0.9814814814814815,
+    "sequence_accuracy": 0.9814814814814815,
+    "total": 54,
+    "avg_latency": 0.6881759157431252,
+    "model_size": 88307366,
+    "timestamp": "2026-06-02_234640",
+    "mode": "full",
+    "category": null,
+    "chunk_seconds": null,
+    "source_file": "2026-06-02_234640.json"
+  },
+  {
+    "name": "c2c-direct-mixed-tta",
+    "recall": 1.0,
+    "precision": 0.9907407407407407,
+    "sequence_accuracy": 0.9814814814814815,
+    "total": 54,
+    "avg_latency": 0.8837383608128961,
+    "model_size": 88307366,
+    "timestamp": "2026-06-02_234211",
+    "mode": "full",
+    "category": null,
+    "chunk_seconds": null,
+    "source_file": "2026-06-02_234211.json"
+  },
+  {
     "name": "c2c-direct-onnx",
     "recall": 0.9814814814814815,
     "precision": 0.9814814814814815,
     "sequence_accuracy": 0.9814814814814815,
     "total": 54,
-    "avg_latency": 0.6960185109993391,
+    "avg_latency": 0.6571053141308733,
     "model_size": 133652270,
-    "timestamp": "2026-06-02_033243",
+    "timestamp": "2026-06-03_000004",
     "mode": "full",
     "category": null,
     "chunk_seconds": null,
-    "source_file": "2026-06-02_033243.json"
+    "source_file": "2026-06-03_000004.json"
   },
   {
     "name": "contrastive",

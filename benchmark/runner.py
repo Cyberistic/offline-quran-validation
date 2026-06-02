@@ -51,6 +51,8 @@ EXPERIMENT_REGISTRY = {
     / "run.py",
     "c2c-direct": EXPERIMENTS_DIR / "c2c-direct" / "run.py",
     "c2c-direct-onnx": EXPERIMENTS_DIR / "c2c-direct-onnx" / "run.py",
+    "c2c-direct-mixed": EXPERIMENTS_DIR / "c2c-direct-mixed" / "run.py",
+    "c2c-direct-mixed-tta": EXPERIMENTS_DIR / "c2c-direct-mixed-tta" / "run.py",
 }
 
 NEW_MODELS_PATH = EXPERIMENTS_DIR / "new-models" / "run.py"
