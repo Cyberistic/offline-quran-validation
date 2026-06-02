@@ -53,6 +53,7 @@ EXPERIMENT_REGISTRY = {
     "c2c-direct-onnx": EXPERIMENTS_DIR / "c2c-direct-onnx" / "run.py",
     "c2c-direct-mixed": EXPERIMENTS_DIR / "c2c-direct-mixed" / "run.py",
     "c2c-direct-mixed-tta": EXPERIMENTS_DIR / "c2c-direct-mixed-tta" / "run.py",
+    "c2c-direct-mixed-streaming": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming" / "run.py",
     "c2c-direct-trie": EXPERIMENTS_DIR / "c2c-direct-trie" / "run.py",
 }
 
