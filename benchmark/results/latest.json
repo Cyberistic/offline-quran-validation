@@ -28,6 +28,20 @@
     "source_file": "2026-06-01_093310.json"
   },
   {
+    "name": "c2c-direct-onnx",
+    "recall": 0.9814814814814815,
+    "precision": 0.9814814814814815,
+    "sequence_accuracy": 0.9814814814814815,
+    "total": 54,
+    "avg_latency": 0.6960185109993391,
+    "model_size": 133652270,
+    "timestamp": "2026-06-02_033243",
+    "mode": "full",
+    "category": null,
+    "chunk_seconds": null,
+    "source_file": "2026-06-02_033243.json"
+  },
+  {
     "name": "contrastive",
     "recall": 0,
     "precision": 0,

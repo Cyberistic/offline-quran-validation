@@ -50,6 +50,7 @@ EXPERIMENT_REGISTRY = {
     / "fastconformer-contrastive"
     / "run.py",
     "c2c-direct": EXPERIMENTS_DIR / "c2c-direct" / "run.py",
+    "c2c-direct-onnx": EXPERIMENTS_DIR / "c2c-direct-onnx" / "run.py",
 }
 
 NEW_MODELS_PATH = EXPERIMENTS_DIR / "new-models" / "run.py"
