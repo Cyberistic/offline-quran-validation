@@ -56,6 +56,7 @@ EXPERIMENT_REGISTRY = {
     "c2c-direct-mixed-streaming": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming" / "run.py",
     "c2c-direct-mixed-streaming-v2": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming-v2" / "run.py",
     "c2c-direct-mixed-streaming-v3": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming-v3" / "run.py",
+    "c2c-direct-mixed-streaming-v4": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming-v4" / "run.py",
     "c2c-direct-trie": EXPERIMENTS_DIR / "c2c-direct-trie" / "run.py",
 }
 
