@@ -1,0 +1,12 @@
+{
+  "source_model": "nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0",
+  "prune_dim": 1024,
+  "freeze_up_to": 8,
+  "params_total": 78935042,
+  "params_trainable": 45229058,
+  "learning_rate": 3e-05,
+  "max_steps": 5000,
+  "batch_size": 8,
+  "grad_accum": 4,
+  "elapsed_min": 75.1
+}

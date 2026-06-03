@@ -78,6 +78,7 @@ BLANK_ID = VOCAB_SIZE - 1
 
 _model = None
 _db = None
+_token_ids_cache: dict[str, list[int]] = {}
 
 
 def _install_kaldialign_fallback() -> None:
@@ -211,6 +212,15 @@ def _candidate_text(c: dict) -> str:
     return c.get("ctc_text") or c.get("text_clean") or ""
 
 
+def _token_ids(text: str) -> list[int]:
+    cached = _token_ids_cache.get(text)
+    if cached is not None:
+        return cached
+    token_ids = _model.tokenizer.text_to_ids(text)
+    _token_ids_cache[text] = token_ids
+    return token_ids
+
+
 def _add_candidate(out: list[dict], seen: set, cand: dict) -> None:
     c = dict(cand)
     c["ayah_end"] = c.get("ayah_end") or c["ayah"]
@@ -318,7 +328,7 @@ def _ctc_rerank(log_probs_np: np.ndarray, candidates: list[dict]) -> list[dict]:
     feasible_indices: list[int] = []
     lengths: list[int] = []
     for i, cand in enumerate(candidates):
-        token_ids = _model.tokenizer.text_to_ids(_candidate_text(cand))
+        token_ids = _token_ids(_candidate_text(cand))
         if token_ids and len(token_ids) * 2 + 1 <= t:
             encoded.append(token_ids)
             feasible_indices.append(i)

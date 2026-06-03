@@ -43,6 +43,7 @@ class QuranDB:
         self._by_surah = {}
         for v in self.verses:
             v["text_clean"] = v["text_clean"].lstrip("\ufeff")
+            v["text_clean_alt"] = normalize_arabic(v["text_uthmani"]).lstrip("\ufeff")
             self._by_ref[(v["surah"], v["ayah"])] = v
             self._by_surah.setdefault(v["surah"], []).append(v)
             # Pre-compute bismillah-stripped text for verse 1 of each surah
@@ -92,10 +93,30 @@ class QuranDB:
         text = normalize_arabic(text)
         scored = []
         for v in self.verses:
-            score = ratio(text, v["text_clean"])
+            score = self._best_fragment_score(text, v)
             scored.append({**v, "score": score, "text": v["text_uthmani"]})
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:top_k]
+
+    @staticmethod
+    def _best_text_ratio(text: str, verse: dict) -> float:
+        return max(ratio(text, verse["text_clean"]), ratio(text, verse["text_clean_alt"]))
+
+    @staticmethod
+    def _best_fragment_score(text: str, verse: dict) -> float:
+        return max(
+            QuranDB._fragment_score(text, verse["text_clean"], ratio(text, verse["text_clean"])),
+            QuranDB._fragment_score(text, verse["text_clean_alt"], ratio(text, verse["text_clean_alt"])),
+        )
+
+    @staticmethod
+    def _best_spaceless_ratio(text: str, spaceless: str, verse: dict) -> float:
+        return max(
+            ratio(text, verse["text_clean"]),
+            ratio(spaceless, verse["text_clean"].replace(" ", "")),
+            ratio(text, verse["text_clean_alt"]),
+            ratio(spaceless, verse["text_clean_alt"].replace(" ", "")),
+        )
 
     def _continuation_bonuses(
         self, hint: tuple[int, int] | None
@@ -138,6 +159,7 @@ class QuranDB:
         n = len(self.verses)
         for idx, v in enumerate(self.verses):
             trigrams = self._char_trigrams(v["text_clean"])
+            trigrams |= self._char_trigrams(v["text_clean_alt"])
             if v.get("text_clean_no_bsm"):
                 trigrams |= self._char_trigrams(v["text_clean_no_bsm"])
             for tri in trigrams:
@@ -198,6 +220,11 @@ class QuranDB:
         """
         query_words = text.split()
         verse_words = verse_text.split()
+        # Exact substring matches from short fragments like "وما كفر سليمان"
+        # should rank strongly even when the full ayah is much longer.
+        if len(query_words) >= 3 and f" {text} " in f" {verse_text} ":
+            return max(full_ratio, 0.98)
+
         if len(query_words) < 4 or len(verse_words) < 2:
             return full_ratio
 
@@ -262,8 +289,7 @@ class QuranDB:
 
         scored = []
         for v in iter_verses:
-            raw = ratio(text, v["text_clean"])
-            raw = self._fragment_score(text, v["text_clean"], raw)
+            raw = self._best_fragment_score(text, v)
             # Also try matching without the bismillah prefix for verse 1s
             if v["text_clean_no_bsm"]:
                 stripped_raw = ratio(text, v["text_clean_no_bsm"])
@@ -275,7 +301,10 @@ class QuranDB:
             # For continuation candidates, also try suffix-prefix matching
             # to handle residual text from the previous verse in the window
             if bonus > 0:
-                sp = self._suffix_prefix_score(text, v["text_clean"])
+                sp = max(
+                    self._suffix_prefix_score(text, v["text_clean"]),
+                    self._suffix_prefix_score(text, v["text_clean_alt"]),
+                )
                 raw = max(raw, sp)
             scored.append((v, raw, bonus, min(raw + bonus, 1.0)))
         scored.sort(key=lambda x: x[3], reverse=True)

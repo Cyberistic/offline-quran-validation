@@ -1,0 +1,82 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 0.47398023406992096,
+    "val_loss": 0.25532985717044643,
+    "val_global_top1_acc": 0.44534423775924736,
+    "val_global_top5_acc": 0.7261599315800727,
+    "learning_rate": 0.0001
+  },
+  {
+    "epoch": 2,
+    "train_loss": 0.16776567806159412,
+    "val_loss": 0.19847228148653598,
+    "val_global_top1_acc": 0.5175058798375026,
+    "val_global_top5_acc": 0.8083440239469746,
+    "learning_rate": 9.140576474687264e-05
+  },
+  {
+    "epoch": 3,
+    "train_loss": 0.12598876629799893,
+    "val_loss": 0.15373545703139213,
+    "val_global_top1_acc": 0.5774267692965577,
+    "val_global_top5_acc": 0.8519350010690614,
+    "learning_rate": 6.890576474687263e-05
+  },
+  {
+    "epoch": 4,
+    "train_loss": 0.09864667974504104,
+    "val_loss": 0.11364912094927342,
+    "val_global_top1_acc": 0.6791746846268976,
+    "val_global_top5_acc": 0.9066442163780201,
+    "learning_rate": 4.1094235253127366e-05
+  },
+  {
+    "epoch": 5,
+    "train_loss": 0.08431013368222338,
+    "val_loss": 0.09681304823211796,
+    "val_global_top1_acc": 0.7273626256147103,
+    "val_global_top5_acc": 0.9292014111610006,
+    "learning_rate": 1.8594235253127368e-05
+  },
+  {
+    "epoch": 6,
+    "train_loss": 0.07972600656787462,
+    "val_loss": 0.0881291805244539,
+    "val_global_top1_acc": 0.7382135984605517,
+    "val_global_top5_acc": 0.9401592901432543,
+    "learning_rate": 1.8594235253127368e-05
+  },
+  {
+    "epoch": 7,
+    "train_loss": 0.07317060417250197,
+    "val_loss": 0.08548003712102427,
+    "val_global_top1_acc": 0.7445745135770794,
+    "val_global_top5_acc": 0.9401325636091512,
+    "learning_rate": 1e-05
+  },
+  {
+    "epoch": 8,
+    "train_loss": 0.07668758776982978,
+    "val_loss": 0.08602554134520826,
+    "val_global_top1_acc": 0.7445477870429763,
+    "val_global_top5_acc": 0.9421905067350866,
+    "learning_rate": 1.8594235253127368e-05
+  },
+  {
+    "epoch": 9,
+    "train_loss": 0.08578244822513299,
+    "val_loss": 0.0971972847293052,
+    "val_global_top1_acc": 0.699834295488561,
+    "val_global_top5_acc": 0.9155708787684413,
+    "learning_rate": 4.1094235253127386e-05
+  },
+  {
+    "epoch": 10,
+    "train_loss": 0.10218975004557193,
+    "val_loss": 0.1227053499935739,
+    "val_global_top1_acc": 0.6251870857387214,
+    "val_global_top5_acc": 0.8773519350010691,
+    "learning_rate": 6.890576474687269e-05
+  }
+]

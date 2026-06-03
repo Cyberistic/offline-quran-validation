@@ -24,7 +24,7 @@ CONTINUATION_BONUS = 0.15
 SCORE_DROP_THRESHOLD = 0.15  # emit when score drops this much below peak
 MIN_EMIT_SCORE = 0.3  # minimum score to consider a match real
 OVERFLOW_RATIO = 1.15  # if accumulated words > verse words * this, try splitting
-STREAMING_MIN_EMIT_SCORE = 0.25
+STREAMING_MIN_EMIT_SCORE = 0.2
 MIN_WORDS_FOR_MATCH = 2
 # Pending emission ages out after this many process_delta calls without
 # confirmation. Prevents indefinite hold when the next verse is missed.

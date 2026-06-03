@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -30,6 +31,7 @@ _cd = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_cd)
 
 _ort_session = None
+_PROFILE = os.getenv("C2C_DIRECT_MIXED_PROFILE", "") not in ("", "0", "false", "False")
 
 
 def _ensure_ort():
@@ -65,17 +67,37 @@ def predict(audio_path: str) -> dict:
     _ensure_ort()
     import math
 
+    t0 = time.perf_counter()
     log_probs = _ctc_logprobs(audio_path)
+    t1 = time.perf_counter()
     transcript = _cd._greedy_decode(log_probs)
+    t2 = time.perf_counter()
     if not transcript.strip():
+        if _PROFILE:
+            print(
+                "[c2c-direct-mixed profile] "
+                f"audio={Path(audio_path).name} "
+                f"forward={t1-t0:.3f}s decode={t2-t1:.3f}s total={t2-t0:.3f}s empty=1"
+            )
         return _cd._empty("")
 
     candidates, base = _cd._build_candidates(transcript)
+    t3 = time.perf_counter()
     if not candidates and not base:
+        if _PROFILE:
+            print(
+                "[c2c-direct-mixed profile] "
+                f"audio={Path(audio_path).name} "
+                f"forward={t1-t0:.3f}s decode={t2-t1:.3f}s build={t3-t2:.3f}s "
+                f"total={t3-t0:.3f}s no_candidates=1"
+            )
         return _cd._empty(transcript)
 
     use_ctc = base is None or float(base.get("score", 0.0)) < _cd.FALLBACK_THRESHOLD
+    t4 = t3
     ranked = _cd._ctc_rerank(log_probs, candidates) if use_ctc else []
+    if use_ctc:
+        t4 = time.perf_counter()
 
     if use_ctc and ranked:
         best = ranked[0]
@@ -91,6 +113,15 @@ def predict(audio_path: str) -> dict:
         score = float(base.get("score", 0.0))
     else:
         return _cd._empty(transcript)
+
+    if _PROFILE:
+        print(
+            "[c2c-direct-mixed profile] "
+            f"audio={Path(audio_path).name} "
+            f"forward={t1-t0:.3f}s decode={t2-t1:.3f}s build={t3-t2:.3f}s "
+            f"rerank={t4-t3:.3f}s total={t4-t0:.3f}s candidates={len(candidates)} "
+            f"use_ctc={int(use_ctc)} source={source}"
+        )
 
     return {
         "surah": best["surah"],

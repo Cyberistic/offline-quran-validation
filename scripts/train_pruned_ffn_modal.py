@@ -157,8 +157,11 @@ def train(prune_dim: int = 1024):
     )
     print(f"Expected int4+int8 size: ~{total_after*4/1e6 * 0.10:.0f} MB")
 
-    # ── Freeze: CNN + lower half of transformer layers ──
-    model.freeze_feature_encoder()  # CNN
+    # ── Freeze: preprocessor (CNN feature extractor) + lower half of transformer layers ──
+    # NeMo EncDecHybridRNNTCTCBPEModel has no freeze_feature_encoder (that's HF API).
+    # We freeze the preprocessor's params directly, then the lower-half transformer layers.
+    for p in model.preprocessor.parameters():
+        p.requires_grad = False
     n_layers = len(model.encoder.layers)
     freeze_up_to = n_layers // 2  # freeze first 8 of 17 layers
     for i, layer in enumerate(model.encoder.layers):
@@ -338,8 +341,15 @@ def train(prune_dim: int = 1024):
 
     # Also save the model cfg for restore
     cfg_path = OUTPUT_DIR / "model_config.yaml"
-    model.cfg.to_yaml(str(cfg_path))
-    print(f"  Saved config: {cfg_path}")
+    try:
+        model.cfg.to_yaml(str(cfg_path))
+        print(f"  Saved config: {cfg_path}")
+    except Exception as e:
+        # NeMo's OmegaConf is a DictConfig, not a regular Config — to_yaml
+        # may not be available. Skip the config save; the state dict alone
+        # is enough to re-export ONNX (architecture is hardcoded in
+        # export_pruned_ffn.py).
+        print(f"  Skipped config save: {e}")
 
     # Save metadata
     metadata = {
