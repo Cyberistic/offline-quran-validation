@@ -26,13 +26,18 @@ import os
 import sys
 import json
 import tempfile
+from collections import defaultdict
 from pathlib import Path
+
+from pyctcdecode.language_model import AbstractLanguageModel
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 ONNX_MODEL_PATH = PROJECT_ROOT / "data" / "onnx_export" / "fastconformer_phoneme_q8.onnx"
 QURAN_PHONEMES_PATH = PROJECT_ROOT / "data" / "quran_phonemes_web.json"
+UNIGRAMS_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "quran_phoneme_unigrams.txt"
+NGRAMS_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "phoneme_ngrams.json"
 
 # Must match the vocabulary used during training
 PHONEME_VOCAB = [
@@ -46,17 +51,102 @@ PHONEME_VOCAB = [
 BLANK_ID = len(PHONEME_VOCAB)  # 69
 
 USE_BEAM = os.getenv("PHONEME_LM_USE_BEAM", "0").strip() == "1"
+USE_CUSTOM_LM = os.getenv("PHONEME_LM_USE_CUSTOM", "1").strip() == "1"
 TOP_K = int(os.getenv("PHONEME_LM_TOP_K", "10"))
 TOP_SURAHS = int(os.getenv("PHONEME_LM_TOP_SURAHS", "5"))
 MAX_SPAN = int(os.getenv("PHONEME_LM_MAX_SPAN", "2"))
 ENABLE_SPANS = os.getenv("PHONEME_LM_SPANS", "1") == "1"
-ENABLE_FRAGMENT = os.getenv("PHONEME_LM_FRAGMENT", "1") == "1"
+ENABLE_FRAGMENT = os.getenv("PHONEME_LM_FRAGMENT", "0") == "1"
 _BSM_PHONEMES_JOINED = "bismi allahi arraHmaani arraHiimi"
 
 _onnx_session = None
 _verses = None
 _by_surah: dict[int, list[dict]] = {}
 _beam_decoder = None
+
+
+def _read_unigrams(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _build_labels() -> list[str]:
+    labels = []
+    for token in PHONEME_VOCAB:
+        labels.append(" " if token == "|" else token)
+    labels.append("")
+    return labels
+
+
+class PhonemeNgramLM(AbstractLanguageModel):
+    """Compact phoneme word-level n-gram LM for pyctcdecode."""
+
+    def __init__(self, ngrams_path: Path, order: int = 3, smoothing: float = 0.1, weight: float = 0.3):
+        data = json.loads(ngrams_path.read_text(encoding="utf-8"))
+        self._unigrams = data["unigrams"]
+        self._bigrams = data["bigrams"]
+        self._trigrams = data.get("trigrams", {})
+        self._total = data["total_words"]
+        self._vocab_size = data["vocab_size"]
+        self._order = order
+        self._smoothing = smoothing
+        self._weight = weight
+        self._word_set = set(self._unigrams.keys())
+        self._word_prefixes: set[str] = set()
+        for w in self._word_set:
+            for i in range(1, len(w) + 1):
+                self._word_prefixes.add(w[:i])
+
+    @property
+    def order(self) -> int:
+        return self._order
+
+    def _ngram_logprob(self, context: tuple[str, ...], word: str) -> float:
+        import math
+
+        if len(context) >= 2:
+            key = f"{context[-2]} {context[-1]}"
+            tri = self._trigrams.get(key, {})
+            total = sum(tri.values()) if tri else 0
+            if total > 0:
+                count = tri.get(word, 0)
+                prob = (count + self._smoothing) / (total + self._smoothing * self._vocab_size)
+                return math.log(prob)
+
+        if len(context) >= 1:
+            bi = self._bigrams.get(context[-1], {})
+            total = sum(bi.values()) if bi else 0
+            if total > 0:
+                count = bi.get(word, 0)
+                prob = (count + self._smoothing) / (total + self._smoothing * self._vocab_size)
+                return math.log(prob)
+
+        count = self._unigrams.get(word, 0)
+        prob = (count + self._smoothing) / (self._total + self._smoothing * self._vocab_size)
+        return math.log(prob)
+
+    def score(self, prev_state: object, word: str, is_last_word: bool = False):
+        context = prev_state if isinstance(prev_state, tuple) else ()
+        logp = self._ngram_logprob(context, word) * self._weight
+        new_state = (context + (word,))[-(self._order - 1):]
+        return logp, new_state
+
+    def score_partial_token(self, partial_token: str) -> float:
+        if not partial_token:
+            return 0.0
+        if partial_token in self._word_prefixes:
+            return 0.0
+        return -10.0
+
+    def get_start_state(self):
+        return ()
+
+    def reset_params(self, **params):
+        pass
+
+    def save_to_dir(self, filepath: str):
+        pass
 
 
 def _ensure_loaded():
@@ -96,13 +186,20 @@ def _ensure_loaded():
     print(f"[c2c-direct-phoneme] loaded {len(_verses)} verses")
 
     if USE_BEAM:
-        from pyctcdecode import build_ctcdecode
-        labels = []
-        for token in PHONEME_VOCAB:
-            labels.append(" " if token == "|" else token)
-        labels.append("")
-        _beam_decoder = build_ctcdecoder(labels=labels, alpha=0.7, beta=1.0)
-        print("[c2c-direct-phoneme] using beam search (pyctcdecode)")
+        labels = _build_labels()
+        unigrams = _read_unigrams(UNIGRAMS_PATH)
+        if USE_CUSTOM_LM and NGRAMS_PATH.exists():
+            from pyctcdecode.decoder import Alphabet, BeamSearchDecoderCTC
+
+            lm = PhonemeNgramLM(NGRAMS_PATH, order=3, smoothing=0.1, weight=0.3)
+            alphabet = Alphabet.build_alphabet(labels)
+            _beam_decoder = BeamSearchDecoderCTC(alphabet, language_model=lm)
+            print("[c2c-direct-phoneme] using beam search + custom phoneme n-gram LM")
+        else:
+            from pyctcdecode import build_ctcdecoder
+
+            _beam_decoder = build_ctcdecoder(labels=labels, unigrams=unigrams, alpha=0.7, beta=1.0)
+            print("[c2c-direct-phoneme] using beam search + unigrams")
 
 
 def _extract_mel(audio: np.ndarray, sr: int = 16000) -> np.ndarray:

@@ -16,24 +16,26 @@ Levenshtein match against `quran_phonemes.json` (5.3 MB verse reference).
    - Pass 1.5: `fragment_score` boost (disabled by default for speed)
    - Pass 2: multi-verse span matching on top 5 surahs
 
-The upstream uses pyctcdecode beam search + KenLM, which we don't have
-set up. Greedy + Levenshtein is sufficient for the 54-sample benchmark.
+The upstream uses pyctcdecode beam search + KenLM. We added beam support and
+built phoneme unigram/ngram assets locally, but both beam variants regressed
+vs greedy on our 54-sample corpus.
 
 ## Results (54 samples, full mode)
 
 | Config | SeqAcc | Latency | Notes |
 |---|---|---|---|
-| **Default (greedy + Levenshtein)** | **83%** | **3.97s** | spans on, fragment off |
-| spans on, fragment on | 80% | 4.02s | fragment boost costs 3.5s, no gain |
-| spans off, fragment off | 83% | 3.97s | spans don't help (Pass 1 dominates) |
+| **Greedy + spans + no fragment** | **80%** | **0.60s** | best practical setting |
+| Beam + custom phoneme n-gram LM | 78% | 0.52s | regresses vs greedy |
+| Beam + unigrams | 78% | 0.54s | also regresses |
+| Greedy + fragment boost | 83% | 3.97s | +3pp, but 6.6x slower |
 
 For reference, the other c2c-direct variants:
 - `c2c-direct-mixed` (BPE, int4+int8): 98% @ 0.69s, 88 MB
 - `c2c-direct-mixed-streaming` (BPE, 15s chunks): 78% @ 0.52s, 88 MB
 
-## Why 83% not 98%?
+## Why phoneme still loses to c2c-direct-mixed
 
-The phoneme model gets 87% recall / 89% precision / 83% SeqAcc. The 15pp
+Best practical setting here is 85% recall / 89% precision / 80% SeqAcc. The
 gap to c2c-direct-mixed (98%) comes from:
 
 1. **No CTC re-rank on the phoneme output**. c2c-direct does
@@ -50,19 +52,25 @@ The 125 MB model is competitive with the 88 MB c2c-direct-mixed on
 recall (87% vs 98%) but slower and worse on accuracy. The BPE
 approach is the right choice for production.
 
-## How to get the upstream's 96%
+## Beam search findings
 
-The upstream yazinsai run hits 96% all metrics with the SAME 125 MB
-phoneme model + a 5-min KenLM build. Path:
+Implemented in this session:
 
-1. Build `data/kenlm_phoneme/quran_phoneme_unigrams.txt` (extract all
-   phoneme-words from quran_phonemes.json)
-2. Build a KenLM arpa/bin model with `lmplz` + `build_binary`
-3. Set `PHONEME_LM_USE_BEAM=1` and `PHONEME_KENLM_MODEL=<path>`
-4. The pyctcdecode beam search with KenLM should close the gap
+1. `scripts/build_phoneme_kenlm.py`
+2. `data/kenlm_phoneme/quran_phoneme_unigrams.txt`
+3. `data/kenlm_phoneme/phoneme_ngrams.json`
+4. beam decoding in `run.py`
 
-Not done yet — KenLM build is OS-level (apt install), needs a fresh
-session.
+But both beam variants regressed:
+
+- custom n-gram LM: 78% SeqAcc
+- unigram beam: 78% SeqAcc
+
+Likely cause: `pyctcdecode` warns that our alphabet has entries of length > 1
+(`aa`, `SS`, `<<`, etc.). It is treating phoneme tokens as a non-BPE alphabet,
+which does not line up well with its decoding assumptions. The probable fix is
+to remap each phoneme token to a single surrogate symbol before beam decoding,
+then map back after decode.
 
 ## Files
 
@@ -70,12 +78,14 @@ session.
   yazinsai/offline-tarteel, downloaded via curl
 - `data/quran_phonemes_web.json` (5.3 MB) — verse reference with phonemes
   + bismillah stripping metadata
-- `data/kenlm/quran_unigrams.txt` (173 KB) — Arabic unigrams (not phoneme;
-  not currently used)
+- `data/kenlm_phoneme/quran_phoneme_unigrams.txt` — phoneme-word vocabulary
+- `data/kenlm_phoneme/phoneme_ngrams.json` — custom phoneme bigram/trigram LM
+- `scripts/build_phoneme_kenlm.py` — local LM asset builder
 
 ## Configuration
 
-- `PHONEME_LM_USE_BEAM=1` — use pyctcdecode beam search (requires install)
+- `PHONEME_LM_USE_BEAM=1` — use pyctcdecode beam search
+- `PHONEME_LM_USE_CUSTOM=1` — use custom phoneme n-gram LM JSON
 - `PHONEME_LM_TOP_K=10` — top-K candidates returned
 - `PHONEME_LM_TOP_SURAHS=5` — surahs to consider for multi-verse spans
 - `PHONEME_LM_MAX_SPAN=2` — max verses per span (1 = single only)
