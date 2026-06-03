@@ -34,10 +34,14 @@ from pyctcdecode.language_model import AbstractLanguageModel
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from shared.phoneme_codec import decode_surrogate_text, labels_for_ctc
+
 ONNX_MODEL_PATH = PROJECT_ROOT / "data" / "onnx_export" / "fastconformer_phoneme_q8.onnx"
 QURAN_PHONEMES_PATH = PROJECT_ROOT / "data" / "quran_phonemes_web.json"
 UNIGRAMS_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "quran_phoneme_unigrams.txt"
 NGRAMS_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "phoneme_ngrams.json"
+UNIGRAMS_SURROGATE_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "quran_phoneme_unigrams_surrogate.txt"
+NGRAMS_SURROGATE_PATH = PROJECT_ROOT / "data" / "kenlm_phoneme" / "phoneme_ngrams_surrogate.json"
 
 # Must match the vocabulary used during training
 PHONEME_VOCAB = [
@@ -72,11 +76,7 @@ def _read_unigrams(path: Path) -> list[str]:
 
 
 def _build_labels() -> list[str]:
-    labels = []
-    for token in PHONEME_VOCAB:
-        labels.append(" " if token == "|" else token)
-    labels.append("")
-    return labels
+    return labels_for_ctc()
 
 
 class PhonemeNgramLM(AbstractLanguageModel):
@@ -187,19 +187,19 @@ def _ensure_loaded():
 
     if USE_BEAM:
         labels = _build_labels()
-        unigrams = _read_unigrams(UNIGRAMS_PATH)
-        if USE_CUSTOM_LM and NGRAMS_PATH.exists():
+        unigrams = _read_unigrams(UNIGRAMS_SURROGATE_PATH)
+        if USE_CUSTOM_LM and NGRAMS_SURROGATE_PATH.exists():
             from pyctcdecode.decoder import Alphabet, BeamSearchDecoderCTC
 
-            lm = PhonemeNgramLM(NGRAMS_PATH, order=3, smoothing=0.1, weight=0.3)
+            lm = PhonemeNgramLM(NGRAMS_SURROGATE_PATH, order=3, smoothing=0.1, weight=0.3)
             alphabet = Alphabet.build_alphabet(labels)
             _beam_decoder = BeamSearchDecoderCTC(alphabet, language_model=lm)
-            print("[c2c-direct-phoneme] using beam search + custom phoneme n-gram LM")
+            print("[c2c-direct-phoneme] using beam search + surrogate phoneme n-gram LM")
         else:
             from pyctcdecode import build_ctcdecoder
 
             _beam_decoder = build_ctcdecoder(labels=labels, unigrams=unigrams, alpha=0.7, beta=1.0)
-            print("[c2c-direct-phoneme] using beam search + unigrams")
+            print("[c2c-direct-phoneme] using beam search + surrogate unigrams")
 
 
 def _extract_mel(audio: np.ndarray, sr: int = 16000) -> np.ndarray:
@@ -394,9 +394,10 @@ def predict(audio_path: str) -> dict:
     audio = load_audio(audio_path)
     logprobs = _compute_logprobs(audio)
     if USE_BEAM and _beam_decoder is not None:
-        phoneme_text = _beam_decoder.decode(
+        surrogate_text = _beam_decoder.decode(
             logprobs, beam_width=24, beam_prune_logp=-10.0, token_min_logp=-5.0,
         ).strip()
+        phoneme_text = decode_surrogate_text(surrogate_text)
     else:
         phoneme_text = _greedy_decode_phonemes(logprobs)
     top_matches = _match_phoneme_text(phoneme_text, top_k=TOP_K)

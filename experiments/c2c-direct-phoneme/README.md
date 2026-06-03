@@ -61,16 +61,16 @@ Implemented in this session:
 3. `data/kenlm_phoneme/phoneme_ngrams.json`
 4. beam decoding in `run.py`
 
-But both beam variants regressed:
+Beam attempts tried in this session:
 
 - custom n-gram LM: 78% SeqAcc
 - unigram beam: 78% SeqAcc
+- surrogate single-symbol alphabet + custom n-gram LM: 78% SeqAcc
 
-Likely cause: `pyctcdecode` warns that our alphabet has entries of length > 1
-(`aa`, `SS`, `<<`, etc.). It is treating phoneme tokens as a non-BPE alphabet,
-which does not line up well with its decoding assumptions. The probable fix is
-to remap each phoneme token to a single surrogate symbol before beam decoding,
-then map back after decode.
+The surrogate alphabet removed the `pyctcdecode` warning about multi-character
+alphabet entries, but accuracy did not improve. So token representation was not
+the main blocker; the LM-guided beam search itself is just not helping on this
+54-sample corpus with our current matching setup.
 
 ## Files
 
