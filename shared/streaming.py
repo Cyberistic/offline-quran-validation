@@ -108,6 +108,7 @@ class StreamingPipeline:
         confirmed = []
         tentative = None
         tentative_age = 0
+        chunk_n = 0
 
         pos = 0
         while pos < len(audio):
@@ -174,6 +175,32 @@ class StreamingPipeline:
                     tentative = e
                     tentative_age = 0
 
+            # First-chunk seed: if no emission came out and no tentative was
+            # created, take the tracker's best match (even below
+            # STREAMING_MIN_EMIT_SCORE) as a tentative first-verse guess.
+            # The next valid chunk will confirm or replace it.
+            if (
+                tentative is None
+                and not emissions
+                and chunk_n == 0
+            ):
+                # Use a private path: call _find_best_match with a lowered
+                # threshold via direct attribute manipulation
+                saved_min = tracker._min_emit_score
+                tracker._min_emit_score = 0.0
+                try:
+                    seed_match = tracker._find_best_match(tracker._accumulated)
+                finally:
+                    tracker._min_emit_score = saved_min
+                if seed_match and seed_match.get("score", 0.0) > 0.0:
+                    tentative = {
+                        "surah": seed_match["surah"],
+                        "ayah": seed_match["ayah"],
+                        "score": seed_match["score"],
+                    }
+                    tentative_age = 0
+
+            chunk_n += 1
             pos += step_size
 
         # Finalize: confirm tentative if score is decent

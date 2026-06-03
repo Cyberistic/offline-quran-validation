@@ -55,6 +55,7 @@ EXPERIMENT_REGISTRY = {
     "c2c-direct-mixed-tta": EXPERIMENTS_DIR / "c2c-direct-mixed-tta" / "run.py",
     "c2c-direct-mixed-streaming": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming" / "run.py",
     "c2c-direct-mixed-streaming-v2": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming-v2" / "run.py",
+    "c2c-direct-mixed-streaming-v3": EXPERIMENTS_DIR / "c2c-direct-mixed-streaming-v3" / "run.py",
     "c2c-direct-trie": EXPERIMENTS_DIR / "c2c-direct-trie" / "run.py",
 }
 
@@ -222,7 +223,7 @@ def run_experiment(
     """
     mod = _load_module(exp["name"].replace("/", "_").replace("-", "_"), exp["run_path"])
 
-    use_predict = hasattr(mod, "predict") and mode == "full"
+    use_predict = hasattr(mod, "predict") and (mode == "full" or mode == "streaming")
 
     if not use_predict and not hasattr(mod, "transcribe"):
         print(f"  Skipping {exp['name']} — no transcribe() or predict() function")
