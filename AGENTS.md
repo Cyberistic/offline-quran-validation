@@ -152,6 +152,7 @@ def model_size() -> int:                  # model size in bytes
 | c2c-direct | CTC re-rank of FastConformer's own log-probs (.nemo) | 98% | **100%** | 99% | 0.17s | 438 MB |
 | c2c-direct-mixed | int4 (MatMul) + int8 (Conv/LayerNorm) ONNX | 98% | 98% | 98% | 0.69s | **88 MB** |
 | c2c-direct-onnx | same algorithm, log-probs via 128 MB int8 ONNX | 98% | 98% | 98% | 0.85s | 128 MB |
+| c2c-direct-mixed-pruned | FFN-pruned (2048→1024) + int4+int8 — **regression** | 80% | 78% | 78% | 0.86s | 69 MB |
 | **c2c-direct-mixed-streaming-v4** | **hybrid: streaming + offline first verse + seq filter** | **81%** | **93%** | **81%** | **1.60s** | **88 MB** |
 | c2c-direct-mixed-streaming | streaming tracker (15s chunks) | 78% | 86% | 78% | 0.52s | 88 MB |
 | c2c-direct-mixed-streaming-v3 | hybrid predict first chunk + streaming (less effective) | 78% | 86% | 78% | 0.55s | 88 MB |
