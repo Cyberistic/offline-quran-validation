@@ -25,6 +25,9 @@ MIN_CHUNK_LOG_PROB = -1.0
 MIN_CHUNK_WORDS = 2
 HIGH_CONFIDENCE_THRESHOLD = 0.7
 MAX_HOLD_CHUNKS = 3
+# Configurable via env (so benchmark can sweep overlap without code change)
+import os as _os
+OVERLAP_SECONDS = float(_os.getenv("STREAMING_OVERLAP_SECONDS", "0.0"))
 
 
 class StreamingPipeline:
@@ -101,7 +104,8 @@ class StreamingPipeline:
         """
         audio = load_audio(audio_path)
         chunk_size = int(chunk_seconds * SAMPLE_RATE)
-        overlap_size = int(overlap_seconds * SAMPLE_RATE)
+        effective_overlap = max(overlap_seconds, OVERLAP_SECONDS)
+        overlap_size = int(effective_overlap * SAMPLE_RATE)
         step_size = max(chunk_size - overlap_size, 1)
 
         tracker = VerseTracker(self.db, streaming_mode=True)

@@ -56,21 +56,25 @@ def predict(audio_path: str) -> dict:
 
     Returns the streaming emissions but uses offline predict to seed/validate
     the first emission. Net effect: more accurate first-verse detection.
+
+    Latency: streaming (0.5s) + offline (0.7s) sequentially. Parallelism
+    with threads doesn't help (ONNX session is shared, locks slow it down).
     """
     _ensure_loaded()
 
-    # Run streaming pipeline (like v1)
     from shared.streaming import StreamingPipeline
 
     pipeline = StreamingPipeline(_mixed._cd._db)
     chunk_seconds = float(os.getenv("STREAMING_V4_CHUNK_SECONDS", "15.0"))
     use_streaming = os.getenv("STREAMING_V4_DISABLE", "0") != "1"
+
     if use_streaming:
         stream_emissions = pipeline.run_on_audio_chunked(
             audio_path, transcribe, chunk_seconds=chunk_seconds
         )
     else:
         stream_emissions = []
+    offline = _mixed.predict(audio_path)
 
     # Run offline predict (high-confidence single-verse answer)
     offline = _mixed.predict(audio_path)

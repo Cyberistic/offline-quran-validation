@@ -18,13 +18,14 @@ c2c-direct-mixed).
 | Mode | Recall | Precision | SeqAcc | Latency |
 |---|---|---|---|---|
 | Streaming only (v1) | 81% | 86% | 78% | 0.52s |
-| **v4 hybrid (streaming + offline)** | **85%** | **93%** | **81%** | **1.60s** |
+| **v4 hybrid (streaming + offline)** | **85%** | **96%** | **80%** | **2.06s** |
 | v4 with streaming disabled (offline only) | 98% | 97% | 96% | 0.69s |
 | Offline c2c-direct-mixed | 98% | 98% | 98% | 0.69s |
 
-The hybrid v4 is 3pp better than v1 at the cost of 3x latency. The sequential
-filter doesn't help much (streaming is over-emitting in 22% of cases — adding
-those false positives hurts as much as missing the correct verses).
+The hybrid v4 is 2pp better than v1 at the cost of 4x latency. The streaming
+adds latency and the sequential filter rejects most streaming emissions as
+noise, so the result is essentially "offline's first verse only" for multi-verse
+clips. Not a clear win.
 
 For real-world phone deployment, the right design is:
 - Streaming for live UI feedback during recording (shows best-effort guess)
