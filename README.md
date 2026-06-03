@@ -242,6 +242,21 @@ Streaming metrics are medians across 3 runs (ONNX non-determinism is ±3-6 per r
 
 Full matrix across 20 approaches (Whisper variants, Rabah pruned CTC, FastConformer sweep, contrastive/embedding failures), per-experiment notes, variant deep-dives, a changelog, and key findings live in **[EXPERIMENTS.md](EXPERIMENTS.md)**.
 
+### This branch — c2c-direct family (cyberistic, 54-sample v1 corpus)
+
+CTC re-rank of FastConformer's own log-probs (alamenium port + optimizations):
+
+| Variant | Recall | Precision | SeqAcc | Latency | Size |
+|---|---|---|---|---|---|
+| `c2c-direct` (nvidia .nemo) | 100% | 99% | 98% | 0.17s | 438 MB |
+| `c2c-direct-onnx` (int8 ONNX) | 98% | 98% | 98% | 0.85s | 128 MB |
+| **`c2c-direct-mixed`** (int4+int8 ONNX) | 98% | 98% | 98% | 0.69s | **88 MB** |
+| `c2c-direct-mixed-tta` (parallel 3-pass speed-perturbation) | **100%** | **99%** | **98%** | 0.91s | 88 MB |
+| `c2c-direct-mixed-streaming` (15s chunks, deferred emission) | 81% | 86% | **78%** | 0.52s | 88 MB |
+| offline baseline (no streaming) | 98% | 98% | 98% | 0.69s | 88 MB |
+
+See `experiments/c2c-direct-mixed-streaming/README.md` for the chunked streaming trade-off curve; the v1 series (`c2c-direct`, `c2c-direct-onnx`, `c2c-direct-mixed`, `c2c-direct-mixed-tta`, `c2c-direct-mixed-streaming`) all share the same `experiments/c2c-direct/run.py` algorithm.
+
 ## Project structure
 
 ```
