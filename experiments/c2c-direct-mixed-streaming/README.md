@@ -1,30 +1,39 @@
 """c2c-direct-mixed-streaming — same FastConformer ONNX as c2c-direct-mixed
-in chunked streaming mode.
+in chunked streaming mode, with deferred-emission tracker.
 
-Closes the gap to Yazin's v3 streaming baseline (89.3% recall / 58.2%
-seq-acc on 256 samples).
+EMPIRICAL RESULTS on 54 samples (c2c-direct-mixed backend):
 
-EMPIRICAL RESULTS on 54 samples (3s chunks, c2c-direct-mixed backend):
-  3s  chunks:  72% recall / 55% prec / 44% SeqAcc / 0.66s
-  10s chunks:  85% recall / 82% prec / 70% SeqAcc / 0.54s
-  offline:     98% recall / 98% prec / 98% SeqAcc / 0.69s
+| Chunks | Recall | Precision | SeqAcc | Latency | Notes |
+|--------|--------|-----------|--------|---------|-------|
+| 3s     | 67%    | 59%       | 48%    | 0.65s   | Pre-deferred: 44% Seq |
+| 5s     | 75%    | 73%       | 67%    | 0.59s   | |
+| 10s    | 83%    | 87%       | 76%    | 0.73s   | Pre-deferred: 70% Seq |
+| **15s**| **81%**| **86%**   | **78%**| **0.52s** | **Best — pre-deferred: 70%** |
+| offline| 98%    | 98%       | 98%    | 0.69s   | Full-audio CTC re-rank |
 
-The streaming version is meaningfully worse than offline. The issue is
-fundamental: chunked streaming uses greedy transcript → fuzzy match,
-while c2c-direct's offline strength is CTC re-rank (which requires
-the full log-prob matrix, not the greedy text).
+## Deferred emission (upstream-aligned)
 
-To close the gap, future work would need:
-  - Per-chunk CTC re-rank (each chunk gets its own ctc_loss
-    scoring against the candidate verses; matches are accepted only
-    when the per-chunk score crosses a threshold).
-  - OR: a more confident ASR that doesn't need re-ranking.
-  - OR: a verse detection method that operates on log-probs directly
-    without going through a transcript (e.g., constrained beam search
-    per chunk, with state carried across chunks).
+When the accumulator overflows a verse, the matched verse is held in
+PENDING state instead of emitted immediately. Emission is confirmed
+when:
+  - A NEW (different) verse is matched with score >= 0.35, OR
+  - `finalize()` is called (end-of-stream), OR
+  - pending ages out (3 chunks max).
 
-The 10s-chunk variant (70% SeqAcc) is a useful streaming baseline. It
-gives a streaming latency advantage: first-match within ~5s instead
-of full audio. The 3s-chunk variant (44%) is too noisy to be useful
-for our task.
+This prevents the cascading bogus next-verse emissions that hurt long
+single-verse clips (upstream EXPERIMENTS.md: "v3 still 57 samples
+where recall is perfect but SeqAcc is zero because the tracker emits
+many verses after the correct one").
+
+## Trade-offs
+
+Best streaming variant is 15s chunks at 78% SeqAcc / 0.52s — first-match
+within ~7-8s of audio, 20pp below offline. The gap to 90%+ SeqAcc
+(upstream target) requires either:
+  - A true streaming ASR with cache/segment design (WhisperStreaming,
+    SimulWhisper) — out of scope.
+  - The r15 utterance-level verifier (full-audio phoneme CTC, 96%
+    SeqAcc on v3) — blocked on gated model access.
+  - Word-level primary alignment gate (upstream TS tracker) — would
+    need a significant Python tracker rewrite.
 """
