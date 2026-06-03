@@ -180,8 +180,17 @@ block_size=128, is_symmetric=True, QuantFormat.QOperator)` to int4 the
 `quantize_dynamic` QInt8 on the remaining Conv/LayerNorm/CTC nodes.
 Result: 88 MB (down from 128 MB int8) at the same 98% seq-acc. `onnx_ir`
 is required for `MatMulNBitsQuantizer`. Tried block_size=64 (worse, 81.5%
-seq-acc) and `nodes_to_exclude` to int4 only FFN (200+ MB, remaining
+ seq-acc) and `nodes_to_exclude` to int4 only FFN (200+ MB, remaining
 fp32 attention dominates). Two-pass is the only viable path.
+
+**FFN pruning (regression):** `scripts/train_pruned_ffn_modal.py` fine-tunes
+a FastConformer with FFN dim 2048 → 1024 on Modal A100. Re-exported to ONNX
+and quantized to int4+int8: 69 MB (22% smaller than 88 MB unpruned). But
+SeqAcc dropped from 98% → 78%. Pruning the FFN breaks the model's BPE
+tokenization — transcripts show typos like "اللل" instead of "الله",
+"الرحمم" instead of "الرحمن", and short audios decode to single letters.
+5000 steps of fine-tuning isn't enough to recover. The 22% size reduction
+is not worth the 20pp accuracy drop.
 
 **TTA (c2c-direct-mixed-tta):** `experiments/c2c-direct-mixed-tta/run.py`
 runs 3 forward passes at 0.9×, 1.0×, 1.1× audio speed via
