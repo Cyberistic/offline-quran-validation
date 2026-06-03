@@ -65,7 +65,13 @@ MAX_SPAN = int(os.getenv("CTC_DIRECT_MAX_SPAN", "6"))
 CTC_BATCH = int(os.getenv("CTC_DIRECT_BATCH", "16"))
 FALLBACK_THRESHOLD = float(os.getenv("CTC_DIRECT_THRESHOLD", "0.80"))
 TEXT_WEIGHT = float(os.getenv("CTC_DIRECT_TEXT_WEIGHT", "0.0"))
-SPAN_PENALTY = float(os.getenv("CTC_DIRECT_SPAN_PENALTY", "0.05"))
+# Penalty per extra verse in a multi-ayah span. Default 0.5 (was 0.05) to
+# avoid the false-positive span in retasy_019 (3:1+3:2 instead of 3:2).
+# With 0.5, the 2-verse span needs ctc_norm_loss to be 0.5 better than
+# the single verse -- in practice this is rare, so we prefer the single
+# verse. Real multi-verse recitations (e.g. multi_002_285_286) still
+# pick the 2-verse span because the alignment advantage is bigger.
+SPAN_PENALTY = float(os.getenv("CTC_DIRECT_SPAN_PENALTY", "0.5"))
 
 VOCAB_SIZE = 1025
 BLANK_ID = VOCAB_SIZE - 1
