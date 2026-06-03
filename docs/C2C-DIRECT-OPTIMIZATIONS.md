@@ -256,6 +256,11 @@ All results in this doc are CPU. onnxruntime-gpu + CUDAExecutionProvider would b
   - **React Native:** `onnxruntime-react-native` (community). Same constraints.
   - **Web (WASM):** ONNX Runtime Web + WASM EP. `MatMulNBits` is supported but ~3× slower than native.
 
-- **Streaming.** None of these have a streaming mode yet. Chunked inference (3s windows) with verse continuity bias would close the gap to Yazin's v3 streaming numbers (89.3% recall / 58.2% seq-acc on 256 samples).
+- **Streaming.** Three streaming experiments now ship: `c2c-direct-mixed-streaming`
+  (78% SeqAcc @ 0.52s, 15s chunks), `c2c-direct-mixed-streaming-v4` (80% SeqAcc
+  @ 2.06s, hybrid with offline first verse + sequential filter). The 22pp gap
+  to offline (98%) is from streaming over-emitting random verses on multi-verse
+  clips — closing it requires either a phoneme-level verifier (r15, gated HF)
+  or word-level primary alignment (upstream tried, mixed results).
 
 - **Confirmation on a larger corpus.** All 54 samples are 1:1 with the v1 corpus that alamenium reports on. v2 blind (43 samples), v3 (256 samples), and Neana (crowdsourced) would give a tighter accuracy number. The 98% SeqAcc is a ceiling on this 54-sample set, not a true generalization bound.
