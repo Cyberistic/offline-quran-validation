@@ -152,6 +152,10 @@ def model_size() -> int:                  # model size in bytes
 | c2c-direct | CTC re-rank of FastConformer's own log-probs (.nemo) | 98% | **100%** | 99% | 0.17s | 438 MB |
 | c2c-direct-mixed | int4 (MatMul) + int8 (Conv/LayerNorm) ONNX | 98% | 98% | 98% | 0.69s | **88 MB** |
 | c2c-direct-onnx | same algorithm, log-probs via 128 MB int8 ONNX | 98% | 98% | 98% | 0.85s | 128 MB |
+| **c2c-direct-mixed-streaming-v4** | **hybrid: streaming + offline first verse + seq filter** | **81%** | **93%** | **81%** | **1.60s** | **88 MB** |
+| c2c-direct-mixed-streaming | streaming tracker (15s chunks) | 78% | 86% | 78% | 0.52s | 88 MB |
+| c2c-direct-mixed-streaming-v3 | hybrid predict first chunk + streaming (less effective) | 78% | 86% | 78% | 0.55s | 88 MB |
+| c2c-direct-mixed-streaming-v2 | per-chunk c2c-direct.predict() | 83% | 72% | 78% | 1.09s | 88 MB |
 | ctc-alignment | wav2vec2 CTC forced alignment (fine-tuned) | 81% | 83% | 83% | ~5s | 1.2 GB |
 | tarteel-whisper-base | tarteel-ai/whisper-base-ar-quran | 67% | 72% | 75% | ~3s | 290 MB |
 | whisper-lora | Whisper-small + LoRA | 58% | 64% | 65% | ~1.3s | 485 MB |
