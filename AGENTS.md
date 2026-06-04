@@ -148,13 +148,66 @@ def model_size() -> int:                  # model size in bytes
 
 | Experiment | Approach | SeqAcc | Recall | Precision | Latency | Size |
 |---|---|---|---|---|---|---|
-| ctc-alignment | wav2vec2 CTC forced alignment (fine-tuned) | **81%** | 83% | 83% | ~5s | 1.2 GB |
+| c2c-direct-mixed-tta | int4+int8 ONNX + 0.9×/1.0×/1.1× speed-perturbation TTA (parallel) | 98% | **100%** | 99% | 0.92s | 88 MB |
+| c2c-direct | CTC re-rank of FastConformer's own log-probs (.nemo) | 98% | **100%** | 99% | 0.17s | 438 MB |
+| c2c-direct-mixed | int4 (MatMul) + int8 (Conv/LayerNorm) ONNX | 98% | 98% | 98% | 0.69s | **88 MB** |
+| c2c-direct-onnx | same algorithm, log-probs via 128 MB int8 ONNX | 98% | 98% | 98% | 0.85s | 128 MB |
+| c2c-direct-mixed-pruned | FFN-pruned (2048→1024) + int4+int8 — **regression** | 80% | 78% | 78% | 0.86s | 69 MB |
+| c2c-direct-phoneme | upstream phoneme FastConformer (q8) + Levenshtein match | 85% | 89% | 80% | 0.72s | 125 MB |
+| **c2c-direct-mixed-streaming-v4** | **hybrid: streaming + offline first verse + seq filter** | **81%** | **93%** | **81%** | **1.60s** | **88 MB** |
+| c2c-direct-mixed-streaming | streaming tracker (15s chunks) | 78% | 86% | 78% | 0.52s | 88 MB |
+| c2c-direct-mixed-streaming-v3 | hybrid predict first chunk + streaming (less effective) | 78% | 86% | 78% | 0.55s | 88 MB |
+| c2c-direct-mixed-streaming-v2 | per-chunk c2c-direct.predict() | 83% | 72% | 78% | 1.09s | 88 MB |
+| ctc-alignment | wav2vec2 CTC forced alignment (fine-tuned) | 81% | 83% | 83% | ~5s | 1.2 GB |
 | tarteel-whisper-base | tarteel-ai/whisper-base-ar-quran | 67% | 72% | 75% | ~3s | 290 MB |
 | whisper-lora | Whisper-small + LoRA | 58% | 64% | 65% | ~1.3s | 485 MB |
 | embedding-search | HuBERT → FAISS index | — | — | — | — | — |
 | contrastive | QuranCLAP (HuBERT+AraBERT) | — | — | — | — | — |
 | streaming-asr | mlx-whisper chunked | — | — | — | — | — |
 | new-models/* | Various HF models | — | — | — | — | — |
+
+**Exporting the ONNX:** `scripts/export_fastconformer_onnx.py` traces the
+full preprocessor+encoder+CTC pipeline. Had to work around three ONNX
+gaps: `torch.stft` (complex types) → manual real-valued STFT via a
+precomputed cos/sin DFT matrix; `aten::unfold` (no symbol) → 1D
+`index_select` on a flattened tensor; `aten::fft_rfft` (no symbol) →
+same DFT matrix. Quantization: per-channel + reduce_range + symmetric
+weights (without reduce_range the q8 model gives blank transcripts).
+
+**Mixed int4+int8 ONNX (88 MB):** `scripts/quantize_int4.py` runs
+`MatMulNBitsQuantizer` with `DefaultWeightOnlyQuantConfig(bits=4,
+block_size=128, is_symmetric=True, QuantFormat.QOperator)` to int4 the
+154 weight MatMul nodes. `scripts/quantize_mixed.py` then runs
+`quantize_dynamic` QInt8 on the remaining Conv/LayerNorm/CTC nodes.
+Result: 88 MB (down from 128 MB int8) at the same 98% seq-acc. `onnx_ir`
+is required for `MatMulNBitsQuantizer`. Tried block_size=64 (worse, 81.5%
+ seq-acc) and `nodes_to_exclude` to int4 only FFN (200+ MB, remaining
+fp32 attention dominates). Two-pass is the only viable path.
+
+**FFN pruning (regression):** `scripts/train_pruned_ffn_modal.py` fine-tunes
+a FastConformer with FFN dim 2048 → 1024 on Modal A100. Re-exported to ONNX
+and quantized to int4+int8: 69 MB (22% smaller than 88 MB unpruned). But
+SeqAcc dropped from 98% → 78%. Pruning the FFN breaks the model's BPE
+tokenization — transcripts show typos like "اللل" instead of "الله",
+"الرحمم" instead of "الرحمن", and short audios decode to single letters.
+5000 steps of fine-tuning isn't enough to recover. The 22% size reduction
+is not worth the 20pp accuracy drop.
+
+**TTA (c2c-direct-mixed-tta):** `experiments/c2c-direct-mixed-tta/run.py`
+runs 3 forward passes at 0.9×, 1.0×, 1.1× audio speed via
+`scipy.signal.resample_poly`, picks the highest-scoring CTC re-rank
+result. Confidence-gated (skip TTA if 1.0× score ≥ 0.5). Recovers
+`retasy_019`'s surah: 100% recall (vs 98% without TTA), 98% seq-acc.
+The 2 perturbed forward passes (0.9×, 1.1×) run in parallel via a
+`ThreadPoolExecutor` on a shared ONNX session; mean overhead is ~0.2s
+(0.69s → 0.92s), not 2×.
+
+**Alamenium compare framework:** `scripts/alamenium_compare.py` +
+`scripts/alamenium_worker.py` are adapted from
+[alamenium/quran-research](https://github.com/alamenium/quran-research)
+(commit at clone time). Runs our 4 c2c-direct impls head-to-head in
+subprocesses (forced CPU via `CUDA_VISIBLE_DEVICES=""` in env), reports
+alamenium's 4-metric format (recall/precision/accuracy/seqacc).
 
 **Dead ends:** Moonshine Tiny AR LoRA (character-level tokenizer makes it un-fine-tunable, see README "What we tried").
 

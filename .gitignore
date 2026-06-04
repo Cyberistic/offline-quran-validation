@@ -16,6 +16,8 @@ data/training/
 data/*.log
 
 # Model weights (too large for git)
+data/*.pt
+data/**/*.pt
 data/ctc-base-distilled/
 data/ctc-base-finetuned/
 data/ctc-model/
@@ -27,8 +29,13 @@ data/rabah-ctc-pruned-8/
 data/rabah-ctc-pruned-12/
 data/rabah-ctc-pruned-*-finetuned/
 data/rabah-ctc-source/
+data/quran-md/
+data/onnx_export/*.onnx
+!data/onnx_export/fastconformer_full_mixed.onnx
+data/onnx_export/*.onnx.data
 *.m4a
 *.wav
+*.pt
 node_modules/
 
 # Benchmark timestamped results (latest.json is tracked)

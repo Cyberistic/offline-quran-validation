@@ -25,6 +25,9 @@ MIN_CHUNK_LOG_PROB = -1.0
 MIN_CHUNK_WORDS = 2
 HIGH_CONFIDENCE_THRESHOLD = 0.7
 MAX_HOLD_CHUNKS = 3
+# Configurable via env (so benchmark can sweep overlap without code change)
+import os as _os
+OVERLAP_SECONDS = float(_os.getenv("STREAMING_OVERLAP_SECONDS", "0.0"))
 
 
 class StreamingPipeline:
@@ -101,13 +104,15 @@ class StreamingPipeline:
         """
         audio = load_audio(audio_path)
         chunk_size = int(chunk_seconds * SAMPLE_RATE)
-        overlap_size = int(overlap_seconds * SAMPLE_RATE)
+        effective_overlap = max(overlap_seconds, OVERLAP_SECONDS)
+        overlap_size = int(effective_overlap * SAMPLE_RATE)
         step_size = max(chunk_size - overlap_size, 1)
 
         tracker = VerseTracker(self.db, streaming_mode=True)
         confirmed = []
         tentative = None
         tentative_age = 0
+        chunk_n = 0
 
         pos = 0
         while pos < len(audio):
@@ -174,6 +179,32 @@ class StreamingPipeline:
                     tentative = e
                     tentative_age = 0
 
+            # First-chunk seed: if no emission came out and no tentative was
+            # created, take the tracker's best match (even below
+            # STREAMING_MIN_EMIT_SCORE) as a tentative first-verse guess.
+            # The next valid chunk will confirm or replace it.
+            if (
+                tentative is None
+                and not emissions
+                and chunk_n == 0
+            ):
+                # Use a private path: call _find_best_match with a lowered
+                # threshold via direct attribute manipulation
+                saved_min = tracker._min_emit_score
+                tracker._min_emit_score = 0.0
+                try:
+                    seed_match = tracker._find_best_match(tracker._accumulated)
+                finally:
+                    tracker._min_emit_score = saved_min
+                if seed_match and seed_match.get("score", 0.0) > 0.0:
+                    tentative = {
+                        "surah": seed_match["surah"],
+                        "ayah": seed_match["ayah"],
+                        "score": seed_match["score"],
+                    }
+                    tentative_age = 0
+
+            chunk_n += 1
             pos += step_size
 
         # Finalize: confirm tentative if score is decent
