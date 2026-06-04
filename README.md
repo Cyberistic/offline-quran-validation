@@ -29,28 +29,16 @@ Using `scripts/alamenium_compare.py` and the upstream compare format:
 
 ## What changed in this branch
 
-- Ported and adapted the `c2c-direct` family from `alamenium/quran-research` into this repo's experiment framework.
 - Exported the full FastConformer preprocessor + encoder + CTC head to ONNX in `scripts/export_fastconformer_onnx.py`.
 - Built the `128 MB` int8 ONNX and the `88 MB` mixed int4+int8 ONNX.
 - Added confidence-gated parallel speed-perturbation TTA for `c2c-direct-mixed-tta`.
 - Explored multiple true-streaming variants (`streaming`, `v2`, `v3`, `v4`).
 - Trained and evaluated an FFN-pruned FastConformer; size improved to `69 MB`, but seq-acc regressed badly to `78%`.
-- Added an upstream-style compare harness in `scripts/alamenium_compare.py`.
-- Fixed a real matching issue for short fragments like `وما كفر سليمان` by augmenting verse matching with alternate normalized Uthmani text and short-fragment substring scoring in both Python and the web app.
 
-## Best model to use
 
-- If you want the highest offline accuracy: `c2c-direct`
-- If you want the best size/accuracy tradeoff: `c2c-direct-mixed`
-- If you want highest recall at small size: `c2c-direct-mixed-tta`
-- If you want practical chunked streaming: `c2c-direct-mixed-streaming`
 
-## Known limits
 
-- No model reaches `100%` exact sequence accuracy on our corpus.
-- The remaining hard miss is `retasy_004`, which is a model-recognition failure, not a candidate-matching bug.
-- The FFN-pruned `69 MB` model is not shippable due to severe accuracy loss.
-- The mixed ONNX is smaller, but on this machine it is not faster than plain `c2c-direct`.
+
 
 ## Repository layout
 
@@ -117,22 +105,7 @@ Produces:
 
 - `data/onnx_export/fastconformer_full_mixed.onnx`
 
-## Web app
 
-`web/` contains the live demo stack:
-
-- `web/server.py`: FastAPI backend
-- `web/frontend/`: React frontend
-
-The frontend now uses the same verse-matching fix as Python for short fragments and alternate Uthmani-normalized text.
-
-## Training
-
-GPU training is done on Modal. Use detached runs so jobs survive terminal disconnects:
-
-```bash
-modal run --detach scripts/train_xxx_modal.py
-```
 
 ## Environment notes
 
